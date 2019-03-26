@@ -6,6 +6,7 @@ import (
 	"gocv.io/x/gocv"
 	image2 "image"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"strings"
 )
@@ -30,12 +31,11 @@ func stitchImages(dir string, fps uint, outputFile string, limit uint) {
 		fmt.Errorf("Failed to load images in directory %s", dir)
 	}
 
-	fmt.Println("Found images: %s", len(files))
+	fmt.Println("Found images: ", len(files))
 
 	if limit > uint(len(files)) {
 		limit = uint(len(files))
 	}
-
 
 	newImage := gocv.NewMat()
 	defer newImage.Close()
@@ -57,32 +57,36 @@ func stitchImages(dir string, fps uint, outputFile string, limit uint) {
 	defer writer.Close()
 
 	fmt.Println("Video being generated with the name :", outputFile)
-
-
-
+	fmt.Println("Processinf files upto limit: ", limit)
 
 	for _, image := range files[:limit] {
-		if image.IsDir() || !strings.HasSuffix(image.Name(), "jpg") {
-			continue
-		}
+		processImage(writer, image, dir, imageWidth, imageHeight)
+	}
+}
 
-		newImage = gocv.IMRead(dir + "/" + image.Name(), gocv.IMReadAnyColor)
+func processImage(writer *gocv.VideoWriter, image os.FileInfo, dir string, imageWidth int, imageHeight int) {
+	if image.IsDir() || !strings.HasSuffix(image.Name(), "jpg") {
+		return
+	}
 
-		resizedImage := gocv.NewMat()
+	newImage := gocv.IMRead(dir + "/" + image.Name(), gocv.IMReadAnyColor)
+	defer newImage.Close()
 
-		var pointy image2.Point
+	resizedImage := gocv.NewMat()
+	defer resizedImage.Close()
 
-		pointy.X = imageWidth
-		pointy.Y = imageHeight
+	var pointy image2.Point
+
+	pointy.X = imageWidth
+	pointy.Y = imageHeight
 
 
-		gocv.Resize(newImage, &resizedImage, pointy, 0, 0, gocv.InterpolationLinear)
+	gocv.Resize(newImage, &resizedImage, pointy, 0, 0, gocv.InterpolationLinear)
 
 
-		err = writer.Write(resizedImage)
+	err := writer.Write(resizedImage)
 
-		if err != nil {
-			fmt.Errorf("Failed to add image to video file ")
-		}
+	if err != nil {
+		fmt.Errorf("Failed to add image to video file ")
 	}
 }
